@@ -1,4 +1,5 @@
 const express = require('express');
+const { signPaymentAccessToken } = require('../utils/paymentAccessToken');
 const db = require('../database');
 const authMiddleware = require('../middleware/authMiddleware');
 const { queryTradeInfo } = require('../utils/ecpay');
@@ -89,6 +90,9 @@ function testEnvOnly(req, res, next) {
  *                       type: integer
  *                     status:
  *                       type: string
+ *                     paymentToken:
+ *                       type: string
+ *                       description: 15 分鐘有效且限定此訂單的付款表單憑證
  *                     items:
  *                       type: array
  *                       items:
@@ -209,6 +213,7 @@ router.post('/', (req, res) => {
       total_amount: order.total_amount,
       status: order.status,
       items: orderItems,
+      paymentToken: signPaymentAccessToken(order.id, userId),
       created_at: order.created_at
     },
     error: null,
@@ -348,7 +353,7 @@ router.get('/', (req, res) => {
  *         description: 訂單不存在
  */
 router.get('/:id', (req, res) => {
-  const order = findOrderById(req.params.id);
+  const order = findOrderForUser(req.params.id, req.user.userId);
 
   if (!order) {
     return res.status(404).json({ data: null, error: 'NOT_FOUND', message: '訂單不存在' });

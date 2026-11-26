@@ -3,6 +3,7 @@ const { app, request, getAdminToken, registerUser } = require('./setup');
 describe('Cart API', () => {
   const sessionId = 'test-session-' + Date.now();
   let productId;
+  let productStock;
   let cartItemId;
   let userToken;
 
@@ -10,6 +11,7 @@ describe('Cart API', () => {
     // Get a product id from the product list
     const res = await request(app).get('/api/products');
     productId = res.body.data.products[0].id;
+    productStock = res.body.data.products[0].stock;
   });
 
   it('should add product to cart (guest mode)', async () => {
@@ -53,6 +55,32 @@ describe('Cart API', () => {
     expect(res.body).toHaveProperty('data');
     expect(res.body).toHaveProperty('error', null);
     expect(res.body.data).toHaveProperty('quantity', 3);
+  });
+
+  it('should reject non-positive or non-integer quantities when updating a cart item', async () => {
+    for (const quantity of [0, -1, 1.5, '3abc', [5]]) {
+      const res = await request(app)
+        .patch(`/api/cart/${cartItemId}`)
+        .set('X-Session-Id', sessionId)
+        .send({ quantity });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toMatchObject({
+        data: null,
+        error: 'VALIDATION_ERROR'
+      });
+    }
+
+    const overStock = await request(app)
+      .patch(`/api/cart/${cartItemId}`)
+      .set('X-Session-Id', sessionId)
+      .send({ quantity: productStock + 1 });
+
+    expect(overStock.status).toBe(400);
+    expect(overStock.body).toMatchObject({
+      data: null,
+      error: 'STOCK_INSUFFICIENT'
+    });
   });
 
   it('should remove cart item (guest mode)', async () => {

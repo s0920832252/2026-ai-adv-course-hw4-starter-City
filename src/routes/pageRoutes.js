@@ -1,5 +1,6 @@
 const express = require('express');
 const { buildAioFormHtml } = require('../utils/ecpay');
+const { verifyPaymentAccessToken } = require('../utils/paymentAccessToken');
 const { findOrderById, getOrderItemSummaries } = require('../services/orderService');
 const router = express.Router();
 
@@ -63,11 +64,16 @@ router.get('/ecpay/payment/:orderId', function (req, res) {
   if (!order) {
     return res.status(404).send('訂單不存在');
   }
+  if (!verifyPaymentAccessToken(req.query.token, order)) {
+    return res.status(403).send('付款連結無效或已過期');
+  }
   if (order.status !== 'pending') {
     return res.redirect('/orders/' + order.id);
   }
   const items = getOrderItemSummaries(order.id);
   const html = buildAioFormHtml(order, items);
+  res.set('Cache-Control', 'no-store');
+  res.set('Referrer-Policy', 'no-referrer');
   res.type('text/html').send(html);
 });
 

@@ -315,7 +315,18 @@ describe('Order checkout integration flow', () => {
 
   it('builds a valid ECPay staging form with the persisted order total', async () => {
     const { order } = await createPendingOrder(primaryProduct, 'ecpay-form@example.com');
-    const response = await request(app).get(`/ecpay/payment/${order.id}`);
+    const unauthorized = await request(app).get(`/ecpay/payment/${order.id}`);
+    expect(unauthorized.status).toBe(403);
+    expect(unauthorized.text).toContain('付款連結無效或已過期');
+
+    const invalidToken = await request(app)
+      .get(`/ecpay/payment/${order.id}`)
+      .query({ token: 'invalid-token' });
+    expect(invalidToken.status).toBe(403);
+
+    const response = await request(app)
+      .get(`/ecpay/payment/${order.id}`)
+      .query({ token: order.paymentToken });
 
     expect(response.status).toBe(200);
     expect(response.type).toBe('text/html');
@@ -426,6 +437,8 @@ describe('Order checkout integration flow', () => {
     const forgedResponses = [
       // Tampered signature
       `MerchantID=${ECPAY_CONFIG.merchantId}&MerchantTradeNo=${merchantTradeNo}&TradeAmt=${order.total_amount}&TradeStatus=1&CheckMacValue=${'0'.repeat(64)}`,
+      // Missing signature
+      `MerchantID=${ECPAY_CONFIG.merchantId}&MerchantTradeNo=${merchantTradeNo}&TradeAmt=${order.total_amount}&TradeStatus=1`,
       // Valid signature but a different amount
       signedTradeInfo({
         MerchantID: ECPAY_CONFIG.merchantId,

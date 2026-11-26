@@ -139,6 +139,19 @@ describe('Orders API', () => {
     expect(res.body).toHaveProperty('error');
   });
 
+  it('should not expose another member\'s order details', async () => {
+    const otherMember = await registerUser();
+    const res = await request(app)
+      .get(`/api/orders/${orderId}`)
+      .set('Authorization', `Bearer ${otherMember.token}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({
+      data: null,
+      error: 'NOT_FOUND'
+    });
+  });
+
   it('should reject non-string recipient fields', async () => {
     const res = await request(app)
       .post('/api/orders')

@@ -54,7 +54,8 @@ createApp({
           body: JSON.stringify(form.value)
         });
         Notification.show('訂單已建立，正在前往付款...', 'success');
-        window.location.href = '/ecpay/payment/' + res.data.id;
+        window.location.href = '/ecpay/payment/' + encodeURIComponent(res.data.id)
+          + '?token=' + encodeURIComponent(res.data.paymentToken);
       } catch (err) {
         Notification.show(err?.data?.message || '訂單建立失敗', 'error');
       } finally {
